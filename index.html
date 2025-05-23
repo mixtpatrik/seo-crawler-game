@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Crawler Game</title>
+    <style>
+        /* Import a nice game-like font */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            /* Modernized background gradient */
+            background: linear-gradient(135deg, #e0f2f7, #c1e7f0); /* Light blue gradient */
+            color: #333; /* Darker text color for contrast */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        .game-container {
+            /* Lighter, softer container background */
+            background-color: #ffffff;
+            border-radius: 20px; /* More rounded corners */
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2); /* Softer, larger shadow */
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+            border: 2px solid #a7d9e8; /* Subtle blue border */
+        }
+
+        h1 {
+            font-size: 2.8em; /* Slightly larger title */
+            color: #2c3e50; /* Dark blue title */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2); /* Softer shadow */
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .score-display {
+            font-size: 1.6em;
+            color: #27ae60; /* Vibrant green score */
+            margin-bottom: 15px;
+            text-align: center;
+            padding: 10px 20px;
+            background-color: #ecf0f1; /* Light grey background */
+            border-radius: 10px;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1); /* Subtle inner shadow */
+        }
+
+        canvas {
+            background-color: #1c2a38; /* Dark blue-grey canvas background */
+            border: 6px solid #8e44ad; /* Vibrant purple border */
+            border-radius: 15px; /* More rounded canvas corners */
+            display: block;
+            touch-action: none; /* Prevent default touch actions like scrolling */
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px; /* Increased gap between buttons */
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            font-family: 'Press Start 2P', cursive;
+            /* Modern button gradient */
+            background: linear-gradient(180deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 15px 30px; /* Larger padding */
+            border-radius: 10px; /* More rounded buttons */
+            cursor: pointer;
+            font-size: 1.1em; /* Slightly larger font */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25); /* Softer shadow */
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+            letter-spacing: 1.5px; /* Increased letter spacing */
+        }
+
+        button:hover {
+            background: linear-gradient(180deg, #2980b9, #3498db);
+            transform: translateY(-3px); /* More pronounced hover effect */
+            box-shadow: 0 9px 18px rgba(0, 0, 0, 0.35);
+        }
+
+        button:active {
+            transform: translateY(1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85); /* Slightly darker overlay */
+            color: white;
+            padding: 40px; /* Larger padding */
+            border-radius: 15px;
+            text-align: center;
+            font-size: 2em; /* Larger font for messages */
+            z-index: 1000;
+            display: none;
+            border: 4px solid #e74c3c; /* Red border for game over */
+            box-shadow: 0 0 25px rgba(231, 76, 60, 0.8); /* More intense glow */
+        }
+
+        .message-box button {
+            margin-top: 25px; /* More space above button */
+            background: linear-gradient(180deg, #e74c3c, #c0392b); /* Red gradient for message button */
+        }
+
+        .message-box button:hover {
+            background: linear-gradient(180deg, #c0392b, #e74c3c);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2em;
+            }
+            .score-display {
+                font-size: 1.4em;
+            }
+            button {
+                padding: 12px 25px;
+                font-size: 1em;
+            }
+            .message-box {
+                font-size: 1.5em;
+                padding: 25px;
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>SEO Crawler Game</h1>
+        <div class="score-display">Keywords Collected: <span id="score">0</span></div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="controls">
+            <button id="startButton">Start Crawling</button>
+            <button id="restartButton" style="display: none;">Recrawl Site</button>
+        </div>
+    </div>
+
+    <div id="messageBox" class="message-box">
+        <p id="messageText"></p>
+        <button id="messageButton">OK</button>
+    </div>
+
+    <script>
+        // Get canvas and its 2D rendering context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get score display and buttons
+        const scoreDisplay = document.getElementById('score');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const messageButton = document.getElementById('messageButton');
+
+        // Game settings
+        const gridSize = 20; // Size of each segment of the worm and food
+        let tileCountX; // Number of tiles horizontally
+        let tileCountY; // Number of tiles vertically
+        let worm = []; // Array to store worm segments
+        let food = {}; // Object to store food position
+        let score = 0;
+        let direction = 'right'; // Initial direction of the worm
+        let changingDirection = false; // Flag to prevent rapid direction changes
+        let gameOver = true; // Game starts in a game over state (waiting for start)
+        let gameInterval; // To store the interval ID for the game loop
+        const gameSpeed = 150; // Milliseconds per frame (lower is faster)
+
+        // Function to resize canvas based on window size
+        function resizeCanvas() {
+            // Set canvas size to be a multiple of gridSize, fitting within window
+            const maxCanvasWidth = Math.min(window.innerWidth * 0.9, 600); // Max 600px or 90% of window
+            const maxCanvasHeight = Math.min(window.innerHeight * 0.6, 400); // Max 400px or 60% of window
+
+            canvas.width = Math.floor(maxCanvasWidth / gridSize) * gridSize;
+            canvas.height = Math.floor(maxCanvasHeight / gridSize) * gridSize;
+
+            tileCountX = canvas.width / gridSize;
+            tileCountY = canvas.height / gridSize;
+
+            // If game is active, redraw everything
+            if (!gameOver) {
+                drawGame(); // Call drawGame to ensure everything is redrawn after resize
+            }
+        }
+
+        // Initialize game state
+        function initializeGame() {
+            worm = [
+                { x: 10, y: 10 }, // Head of the worm
+                { x: 9, y: 10 },
+                { x: 8, y: 10 }
+            ];
+            score = 0;
+            direction = 'right';
+            changingDirection = false;
+            gameOver = false;
+            scoreDisplay.textContent = score;
+            generateFood();
+            hideMessageBox();
+            startButton.style.display = 'none';
+            restartButton.style.display = 'inline-block';
+            startGameLoop();
+        }
+
+        // Start the game loop
+        function startGameLoop() {
+            // Clear any existing interval to prevent multiple loops
+            clearInterval(gameInterval);
+            gameInterval = setInterval(gameTick, gameSpeed);
+        }
+
+        // The main game logic per tick
+        function gameTick() {
+            if (gameOver) return; // Stop if game is over
+
+            changingDirection = false; // Allow direction change for next tick
+            clearCanvas();
+            drawFood();
+            moveWorm();
+            drawWorm();
+            checkCollision();
+        }
+
+        // Clear the canvas
+        function clearCanvas() {
+            ctx.fillStyle = '#1c2a38'; /* Canvas background color */
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Draw the worm (now an SEO Crawler)
+        function drawWorm() {
+            for (let i = 0; i < worm.length; i++) {
+                const segment = worm[i];
+                // Head is a different color
+                ctx.fillStyle = (i === 0) ? '#3498db' : '#2ecc71'; /* Blue for head, green for body */
+                ctx.strokeStyle = '#1c2a38'; /* Dark stroke for segments */
+                ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+                ctx.strokeRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+            }
+        }
+
+        // Move the worm
+        function moveWorm() {
+            // Create new head based on current direction
+            const head = { x: worm[0].x, y: worm[0].y };
+
+            switch (direction) {
+                case 'up':
+                    head.y--;
+                    break;
+                case 'down':
+                    head.y++;
+                    break;
+                case 'left':
+                    head.x--;
+                    break;
+                case 'right':
+                    head.x++;
+                    break;
+            }
+
+            // Add new head to the beginning of the worm array
+            worm.unshift(head);
+
+            // Check if worm ate food
+            const didEatFood = head.x === food.x && head.y === food.y;
+            if (didEatFood) {
+                score += 10;
+                scoreDisplay.textContent = score;
+                generateFood(); // Generate new food
+            } else {
+                worm.pop(); // Remove tail if no food was eaten
+            }
+        }
+
+        // Generate food (keyword insight) at a random position
+        function generateFood() {
+            let newFoodX, newFoodY;
+            let collisionWithWorm;
+
+            do {
+                newFoodX = Math.floor(Math.random() * tileCountX);
+                newFoodY = Math.floor(Math.random() * tileCountY);
+                collisionWithWorm = false;
+                // Ensure food doesn't spawn on the worm
+                for (let i = 0; i < worm.length; i++) {
+                    if (worm[i].x === newFoodX && worm[i].y === newFoodY) {
+                        collisionWithWorm = true;
+                        break;
+                    }
+                }
+            } while (collisionWithWorm);
+
+            food = { x: newFoodX, y: newFoodY };
+        }
+
+        // Draw the food (now a lightbulb emoji)
+        function drawFood() {
+            ctx.font = `${gridSize * 0.9}px sans-serif`; // Set font size based on grid size
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💡', food.x * gridSize + gridSize / 2, food.y * gridSize + gridSize / 2);
+        }
+
+        // Check for collisions (walls or self)
+        function checkCollision() {
+            const head = worm[0];
+
+            // Wall collision
+            const hitLeftWall = head.x < 0;
+            const hitRightWall = head.x >= tileCountX;
+            const hitTopWall = head.y < 0;
+            const hitBottomWall = head.y >= tileCountY;
+
+            if (hitLeftWall || hitRightWall || hitTopWall || hitBottomWall) {
+                endGame();
+                return;
+            }
+
+            // Self-collision (check head against body segments, starting from the 4th segment)
+            for (let i = 4; i < worm.length; i++) {
+                if (head.x === worm[i].x && head.y === worm[i].y) {
+                    endGame();
+                    return;
+                }
+            }
+        }
+
+        // End the game
+        function endGame() {
+            gameOver = true;
+            clearInterval(gameInterval); // Stop the game loop
+            showMessageBox(`Crawl Failed! You collected ${score} Keywords.`, 'Recrawl Site');
+            restartButton.style.display = 'inline-block';
+            startButton.style.display = 'none'; // Ensure start button is hidden
+        }
+
+        // Change direction based on keyboard input
+        function changeDirection(event) {
+            if (changingDirection || gameOver) return;
+
+            const keyPressed = event.keyCode;
+            const goingUp = direction === 'up';
+            const goingDown = direction === 'down';
+            const goingLeft = direction === 'left';
+            const goingRight = direction === 'right';
+
+            // Key codes: Left (37), Up (38), Right (39), Down (40)
+            if (keyPressed === 37 && !goingRight) {
+                direction = 'left';
+                changingDirection = true;
+            } else if (keyPressed === 38 && !goingDown) {
+                direction = 'up';
+                changingDirection = true;
+            } else if (keyPressed === 39 && !goingLeft) {
+                direction = 'right';
+                changingDirection = true;
+            } else if (keyPressed === 40 && !goingUp) {
+                direction = 'down';
+                changingDirection = true;
+            }
+        }
+
+        // Show a custom message box
+        function showMessageBox(message, buttonText) {
+            messageText.textContent = message;
+            messageButton.textContent = buttonText;
+            messageBox.style.display = 'block';
+        }
+
+        // Hide the custom message box
+        function hideMessageBox() {
+            messageBox.style.display = 'none';
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', changeDirection);
+        startButton.addEventListener('click', initializeGame);
+        restartButton.addEventListener('click', initializeGame);
+        messageButton.addEventListener('click', hideMessageBox);
+
+        // Add touch controls for mobile devices
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            e.preventDefault(); // Prevent scrolling
+        });
+
+        canvas.addEventListener('touchend', e => {
+            if (gameOver) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            if (absDx > absDy) { // Horizontal swipe
+                if (dx > 0 && direction !== 'left') {
+                    direction = 'right';
+                } else if (dx < 0 && direction !== 'right') {
+                    direction = 'left';
+                }
+            } else { // Vertical swipe
+                if (dy > 0 && direction !== 'up') {
+                    direction = 'down';
+                } else if (dy < 0 && direction !== 'down') {
+                    direction = 'up';
+                }
+            }
+            e.preventDefault(); // Prevent scrolling
+        });
+
+
+        // Initial setup on window load
+        window.onload = function() {
+            resizeCanvas(); // Set initial canvas size
+            // Display initial message to start the game
+            showMessageBox('Guide your SEO Crawler to collect Keyword Insights!', 'Start Crawling');
+            // Hide restart button initially
+            restartButton.style.display = 'none';
+        };
+
+        // Listen for window resize events to make the canvas responsive
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
